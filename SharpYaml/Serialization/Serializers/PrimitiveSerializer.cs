@@ -51,8 +51,10 @@ using SharpYaml.Serialization.Descriptors;
 
 namespace SharpYaml.Serialization.Serializers
 {
-    internal class PrimitiveSerializer : ScalarSerializerBase, IYamlSerializableFactory
+    public class PrimitiveSerializer : ScalarSerializerBase, IYamlSerializableFactory
     {
+        public static bool RoundFloatingPointValues = false;
+
         public IYamlSerializable TryCreate(SerializerContext context, ITypeDescriptor typeDescriptor)
         {
             return typeDescriptor is PrimitiveDescriptor ? this : null;
@@ -261,17 +263,24 @@ namespace SharpYaml.Serialization.Serializers
                         text = ((ulong) value).ToString("G", CultureInfo.InvariantCulture);
                         break;
                     case TypeCode.Single:
-                        // Append decimal point to floating point type values 
-                        // because type changes in round trip conversion if ( value * 10.0 ) % 10.0 == 0
-                        //
-                        // G9 is used instead of R as per the following documentation:
-                        // https://docs.microsoft.com/en-us/dotnet/standard/base-types/standard-numeric-format-strings#the-round-trip-r-format-specifier
-                        // R can cause issues on x64 systems, see https://github.com/dotnet/coreclr/issues/13106 for details.
-                        text = AppendDecimalPoint(((float) value).ToString("G9", CultureInfo.InvariantCulture), true);
+                        if(RoundFloatingPointValues)
+                            text = AppendDecimalPoint((Math.Round((float)value, 7)).ToString("G7", CultureInfo.InvariantCulture), true);
+                        else
+                            // Append decimal point to floating point type values 
+                            // because type changes in round trip conversion if ( value * 10.0 ) % 10.0 == 0
+                            //
+                            // G9 is used instead of R as per the following documentation:
+                            // https://docs.microsoft.com/en-us/dotnet/standard/base-types/standard-numeric-format-strings#the-round-trip-r-format-specifier
+                            // R can cause issues on x64 systems, see https://github.com/dotnet/coreclr/issues/13106 for details.
+
+                            text = AppendDecimalPoint(((float) value).ToString("G9", CultureInfo.InvariantCulture), true);
                         break;
                     case TypeCode.Double:
+                        if (RoundFloatingPointValues)
+                            text = AppendDecimalPoint((Math.Round((double)value, 15)).ToString("G15", CultureInfo.InvariantCulture), true);
+                        else
                         // G17 is used instead of R due to issues on x64 systems. See documentation on TypeCode.Single case above.
-                        text = AppendDecimalPoint(((double) value).ToString("G17", CultureInfo.InvariantCulture), true);
+                            text = AppendDecimalPoint(((double) value).ToString("G17", CultureInfo.InvariantCulture), true);
                         break;
                     case TypeCode.Decimal:
                         text = AppendDecimalPoint(((decimal) value).ToString("G", CultureInfo.InvariantCulture), false);
